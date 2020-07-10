@@ -6,7 +6,7 @@ class explorer:
 	#int or obj &  >100>
 	
 	def winsorize(df):
-    #upout_ or lowout_ winsorize
+   	#upout_ or lowout_ winsorize
 
 	def quantile(df):
 	#25,50,75
