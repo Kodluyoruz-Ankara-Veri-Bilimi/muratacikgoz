@@ -175,10 +175,11 @@ def textbar(df):
 
 ###learner
 
-from sklearn.linear_model import LinearRegression
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_absolute_error
+from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.model_selection import train_test_split, cross_val_score, KFold
 from statsmodels.tools.eval_measures import mse, rmse
+from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score, f1_score, precision_recall_curve, auc
+from sklearn.metrics import classification_report, precision_recall_fscore_support, roc_curve, roc_auc_score, log_loss, mean_absolute_error
 import statsmodels.api as sm
 
 #-----------------------------------------
@@ -233,7 +234,51 @@ def predplts(col, Y):
         plt.tight_layout()
     
     return 
+
+
+#-----------------------------------------
+
+def regplot(X, Y, mod, idx):
+
+    ##multi pred plot
+
+    x_train, x_test, y_train, y_test = train_test_split(X, Y, test_size = 0.2, shuffle = False)
+        
+    results = mod.fit(x_train, y_train)
+    y_pred = results.predict(x_test)
+        
+    sns.scatterplot(x=y_test, y=y_pred)
+    sns.lineplot(x=y_test, y=y_test, label='ytest')
+    plt.ylabel('predict')
+    plt.title(str(idx))
     
+    return 
+
+#-----------------------------------------
+
+
+def regframe(X, Y, mod, idx):
+    
+    ##rsq,mae,mse,rmse,mape
+    
+    x_train, x_test, y_train, y_test = train_test_split(X, Y, test_size = 0.2, shuffle = False)
+    
+    model = mod.fit(x_train, y_train)
+    y_pred = model.predict(x_test)
+    
+    k_fold = KFold(n_splits = 10, shuffle = False)
+
+    df = pd.Series({'rsq_train': model.score(x_train, y_train),
+                    'rsq_test': model.score(x_test, y_test),
+                    'subt_rsq' : model.score(x_train, y_train) - model.score(x_test, y_test),
+                    'mae_test': mean_absolute_error(y_test, y_pred),
+                    'mse_test': mse(y_test, y_pred),
+                    'rmse_test': rmse(y_test, y_pred),
+                    'mape_test': (np.mean(np.abs((y_test - y_pred) / y_test)) * 100),
+                    'cross-score': cross_val_score(estimator = mod, X=X, y=Y, cv=k_fold).mean(),
+                    'cross-train': cross_val_score(estimator = mod, X=x_train, y=y_train, cv=k_fold).mean()}, name = idx)
+    return df
+
     
 #-----------------------------------------
 
@@ -242,28 +287,26 @@ def regstats(col, Y):  #linear
     ##rsq,mae,mse,rmse,mape
 
     pf = pd.DataFrame(columns=['model', 'rsq_train', 'rsq_test', 'subt_rsq', 'mae_test', 'mse_test', 'rmse_test', 'mape_test']) 
-    pd.options.display.float_format = '{:.3f}'.format
+       
+    x_train, x_test, y_train, y_test = train_test_split(X, Y, test_size = 0.2, random_state = 42)
+
     
-    
-    for num,X in enumerate(col,1): 
-        x_train, x_test, y_train, y_test = train_test_split(X, Y, test_size = 0.2, random_state = 42)
-        
-        standardscaler = StandardScaler()
-        x_train = standardscaler.fit_transform(x_train)
-        x_test = standardscaler.transform(x_test)
-        
-        
-        results = LinearRegression().fit(x_train, y_train)
-        y_pred = results.predict(x_test)
-        
-        pf.loc[num] = ('model_'+str(num) ,
-                       results.score(x_train, y_train),
-                       results.score(x_test, y_test),
-                       results.score(x_train, y_train) - results.score(x_test, y_test),
-                       mean_absolute_error(y_test, y_pred), 
-                       mse(y_test, y_pred), 
-                       rmse(y_test, y_pred), 
-                       (np.mean(np.abs((y_test - y_pred) / y_test)) * 100))
+    standardscaler = StandardScaler()
+    x_train = standardscaler.fit_transform(x_train)
+    x_test = standardscaler.transform(x_test)
+
+
+    results = LinearRegression().fit(x_train, y_train)
+    y_pred = results.predict(x_test)
+
+    pf.loc[num] = ('model_'+str(num) ,
+                   results.score(x_train, y_train),
+                   results.score(x_test, y_test),
+                   results.score(x_train, y_train) - results.score(x_test, y_test),
+                   mean_absolute_error(y_test, y_pred), 
+                   mse(y_test, y_pred), 
+                   rmse(y_test, y_pred), 
+                   (np.mean(np.abs((y_test - y_pred) / y_test)) * 100))
     return pf
 
 
@@ -296,14 +339,81 @@ def coefplts(X2,Y2):
     
 #-----------------------------------------
 
-#def confusion(X,y):
-##confusion matrix, precision, recall, fscore
+def confusion(X, Y, mod):
+   
+    ##confusion matrix, precision, recall, fscore
+    
+    x_train, x_test, y_train, y_test = train_test_split(X, Y, test_size = 0.2, random_state = 42)
+
+    model = mod.fit(x_train, y_train)
+
+    y_pred = model.predict(x_test)
+    y_prob = model.predict_proba(x_test)[:,1]
+    
+    dfMatrix = pd.concat([pd.DataFrame(confusion_matrix(y_test, y_pred), columns=['pred_0', 'pred_1']), 
+               pd.DataFrame(precision_recall_fscore_support(y_test, y_pred), index=['precision', 'recall', 'f1-score', 'support']).T],
+               ignore_index=False, axis=1)
+    print('Accuracy:', '%.5f' % model.score(x_test, y_test) ,'|', 'AUC:', '%.5f' % roc_auc_score(y_test, y_prob) )
+    return dfMatrix
+
+
+#-----------------------------------------
 
 #def parameter(param):
 ##best params
 
-#def modelframe(X,y):
-##accuracy, precision, recall, f1-score, auc
 
-#def modelcurve(X,y):
-##roc and recall/precision
+#-----------------------------------------
+
+def modelframe(X, Y, mod, idx):
+    
+    ##accuracy, precision, recall, f1-score, auc
+    
+    x_train, x_test, y_train, y_test = train_test_split(X, Y, test_size = 0.2, random_state = 42)
+    
+    model = mod.fit(x_train, y_train)
+    y_pred = model.predict(x_test)
+    y_train_pred = model.predict(x_train)
+    y_prob = model.predict_proba(x_test)[:,1]
+    precision, recall, _ = precision_recall_curve(y_test, y_prob)
+    
+    k_fold = KFold(n_splits = 10, shuffle = True, random_state = 42)
+
+    df = pd.Series({'train_score': accuracy_score(y_train,y_train_pred),
+                    'test_score': accuracy_score(y_test,y_pred),
+                    'precision' :precision_score(y_test,y_pred),
+                    'recall': recall_score(y_test,y_pred),
+                    'f1-score': f1_score(y_test,y_pred),
+                    'auc-roc': roc_auc_score(y_test, y_prob),
+                    'auc-pr': auc(recall, precision),
+                    'cross-score': cross_val_score(estimator = model, X=X, y=Y, cv=k_fold).mean(),
+                    'cross-train': cross_val_score(estimator = model, X=x_train, y=y_train, cv=k_fold).mean()}, name = idx)
+    return df
+
+
+#-----------------------------------------
+
+def modelcurve(X, Y, mod) :
+         
+    x_train, x_test, y_train, y_test = train_test_split(X, Y, test_size = 0.2, random_state = 42)
+
+    model = mod.fit(x_train, y_train)
+
+    y_pred = model.predict(x_test)
+    y_prob = model.predict_proba(x_test)[:,1]
+
+    plt.subplot(1, 2, 1)
+    fpr, tpr, thresholds  = roc_curve(y_test, y_prob)
+    plt.plot(fpr, tpr)
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title('ROC Curve')
+    
+    plt.subplot(1, 2, 2)
+    precision, recall, _ = precision_recall_curve(y_test, y_prob)
+    plt.plot(precision, recall)
+    plt.xlabel('Recall')
+    plt.ylabel('Precision')
+    plt.title('Recall/Precision Curve')
+
+    return
