@@ -339,11 +339,11 @@ def coefplts(X2,Y2):
     
 #-----------------------------------------
 
-def confusion(X, Y, mod):
+def confusion(X, Y, mod, mix=True):
    
     ##confusion matrix, precision, recall, fscore
     
-    x_train, x_test, y_train, y_test = train_test_split(X, Y, test_size = 0.2, random_state = 42)
+    x_train, x_test, y_train, y_test = train_test_split(X, Y, test_size = 0.2, shuffle = mix, random_state = 42)
 
     model = mod.fit(x_train, y_train)
 
@@ -353,8 +353,9 @@ def confusion(X, Y, mod):
     dfMatrix = pd.concat([pd.DataFrame(confusion_matrix(y_test, y_pred), columns=['pred_0', 'pred_1']), 
                pd.DataFrame(precision_recall_fscore_support(y_test, y_pred), index=['precision', 'recall', 'f1-score', 'support']).T],
                ignore_index=False, axis=1)
-    print('Accuracy:', '%.5f' % model.score(x_test, y_test) ,'|', 'AUC:', '%.5f' % roc_auc_score(y_test, y_prob) )
+    print('Accuracy:', '%.5f' % model.score(x_test, y_test),'|', 'AUC:', '%.5f' % roc_auc_score(y_test, y_prob)  )
     return dfMatrix
+
 
 
 #-----------------------------------------
@@ -365,11 +366,11 @@ def confusion(X, Y, mod):
 
 #-----------------------------------------
 
-def modelframe(X, Y, mod, idx):
+def modelframe(X, Y, mod, idx, mix=True):
     
     ##accuracy, precision, recall, f1-score, auc
     
-    x_train, x_test, y_train, y_test = train_test_split(X, Y, test_size = 0.2, random_state = 42)
+    x_train, x_test, y_train, y_test = train_test_split(X, Y, test_size = 0.2, shuffle = mix, random_state = 42)
     
     model = mod.fit(x_train, y_train)
     y_pred = model.predict(x_test)
@@ -377,10 +378,10 @@ def modelframe(X, Y, mod, idx):
     y_prob = model.predict_proba(x_test)[:,1]
     precision, recall, _ = precision_recall_curve(y_test, y_prob)
     
-    k_fold = KFold(n_splits = 10, shuffle = True, random_state = 42)
+    k_fold = KFold(n_splits = 10, shuffle = mix, random_state = 42)
 
-    df = pd.Series({'train_score': accuracy_score(y_train,y_train_pred),
-                    'test_score': accuracy_score(y_test,y_pred),
+    df = pd.Series({'train-score': accuracy_score(y_train,y_train_pred),
+                    'test-score': accuracy_score(y_test,y_pred),
                     'precision' :precision_score(y_test,y_pred),
                     'recall': recall_score(y_test,y_pred),
                     'f1-score': f1_score(y_test,y_pred),
@@ -393,9 +394,9 @@ def modelframe(X, Y, mod, idx):
 
 #-----------------------------------------
 
-def modelcurve(X, Y, mod) :
+def modelcurve(X, Y, mod, idx, mix=True) :
          
-    x_train, x_test, y_train, y_test = train_test_split(X, Y, test_size = 0.2, random_state = 42)
+    x_train, x_test, y_train, y_test = train_test_split(X, Y, test_size = 0.2, shuffle = mix, random_state = 42)
 
     model = mod.fit(x_train, y_train)
 
@@ -404,17 +405,18 @@ def modelcurve(X, Y, mod) :
 
     plt.subplot(1, 2, 1)
     fpr, tpr, thresholds  = roc_curve(y_test, y_prob)
-    plt.plot(fpr, tpr)
+    plt.plot(fpr, tpr, label = idx + ' %.3f' % roc_auc_score(y_test, y_prob))
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
     plt.title('ROC Curve')
+    plt.legend()
     
     plt.subplot(1, 2, 2)
-    precision, recall, _ = precision_recall_curve(y_test, y_prob)
-    plt.plot(precision, recall)
+    precision, recall, _ = precision_recall_curve(y_test, y_prob)  
+    plt.plot(precision, recall, label = idx + ' %.3f' % auc(recall, precision))
     plt.xlabel('Recall')
     plt.ylabel('Precision')
     plt.title('Recall/Precision Curve')
-
+    plt.legend()
+    
     return
-
